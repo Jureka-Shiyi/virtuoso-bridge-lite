@@ -18,21 +18,21 @@ def main() -> int:
     client  = VirtuosoClient.from_env()
 
     # Always list shapes first
-    resp = client.layout.list_shapes(timeout=15)
-    shapes = decode_skill(resp.get("result", {}).get("output", ""))
+    result = client.layout.list_shapes(timeout=15)
+    shapes = decode_skill(result.output or "")
     print("Shapes in open layout:")
     print(shapes or "  (none)")
 
-    delete_elapsed, response = timed_call(
+    delete_elapsed, result = timed_call(
         lambda: client.layout.delete_shapes_on_layer(DELETE_LAYER, DELETE_PURPOSE, timeout=30)
     )
     print(f"[layout.delete_shapes_on_layer] [{format_elapsed(delete_elapsed)}]")
-    print(decode_skill(response.get("result", {}).get("output", "")))
+    print(decode_skill(result.output or ""))
 
     # Save after delete
-    save_elapsed, save_resp = timed_call(lambda: client.save_current_cellview(timeout=15))
+    save_elapsed, save_result = timed_call(lambda: client.save_current_cellview(timeout=15))
     print(f"[save_current_cellview] [{format_elapsed(save_elapsed)}]")
-    print(decode_skill(save_resp.get("result", {}).get("output", "")))
+    print(decode_skill(save_result.output or ""))
     return 0
 
 

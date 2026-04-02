@@ -29,15 +29,14 @@ def _decode(raw: str) -> str:
 def main() -> int:
     client = VirtuosoClient.from_env()
 
-    load_resp = client.load_il(IL_FILE)
-    load_meta = load_resp.get("result", {}).get("metadata", {})
-    print(f"[load_il] {'uploaded' if load_meta.get('uploaded') else 'cache hit'}"
-          f"  [{format_elapsed(load_resp.get('_elapsed', 0.0))}]")
+    load_result = client.load_il(IL_FILE)
+    print(f"[load_il] {'uploaded' if load_result.metadata.get('uploaded') else 'cache hit'}"
+          f"  [{format_elapsed(load_result.execution_time or 0.0)}]")
 
     # Get current instance list
-    resp = client.execute_skill("SchListInsts()", timeout=15)
-    names = [n for n in _decode(resp.get("result", {}).get("output", "")).splitlines() if n]
-    print(f"[SchListInsts] {names}  [{format_elapsed(resp.get('_elapsed', 0.0))}]")
+    result = client.execute_skill("SchListInsts()", timeout=15)
+    names = [n for n in _decode(result.output or "").splitlines() if n]
+    print(f"[SchListInsts] {names}  [{format_elapsed(result.execution_time or 0.0)}]")
 
     if not names:
         print("No instances to delete.")
@@ -45,12 +44,12 @@ def main() -> int:
 
     # Save first (pre-flight checkpoint), then delete and save again
     target = names[0]
-    response = client.execute_operations(
+    result = client.execute_operations(
         ["SchSave()", f'SchDeleteInst("{target}")', "SchSave()"],
         timeout=30,
     )
-    print(f"[execute_operations] [{format_elapsed(response.get('_elapsed', 0.0))}]")
-    print(_decode(response.get("result", {}).get("output", "")))
+    print(f"[execute_operations] [{format_elapsed(result.execution_time or 0.0)}]")
+    print(_decode(result.output or ""))
     return 0
 
 

@@ -79,19 +79,18 @@ def main() -> int:
     netlist_path = f"{run_dir}/{cell}.src.net"
 
     print(f"Exporting auCdl: {lib}/{cell}/schematic  [{tech}]")
-    load_elapsed, load_resp = timed_call(lambda: client.load_il(IL_FILE, timeout=20))
-    meta = load_resp.get("result", {}).get("metadata", {})
+    load_elapsed, load_result = timed_call(lambda: client.load_il(IL_FILE, timeout=20))
+    meta = load_result.metadata
     print(f"[load_il] {'uploaded' if meta.get('uploaded') else 'cache hit'}  [{format_elapsed(load_elapsed)}]")
 
     def skill(cmd: str) -> str:
-        return decode_skill(client.execute_skill(cmd, timeout=30).get("result", {}).get("output", ""))
+        return decode_skill(client.execute_skill(cmd, timeout=30).output or "")
 
     e = escape_skill_string
 
     # Derive cds.lib path from the library's location on the remote host
     lib_read_path = decode_skill(
-        client.execute_skill(f'ddGetObj("{lib}")~>readPath', timeout=10)
-        .get("result", {}).get("output", "")
+        client.execute_skill(f'ddGetObj("{lib}")~>readPath', timeout=10).output or ""
     )
     cds_lib = f"{'/'.join(lib_read_path.rstrip('/').split('/')[:-1])}/cds.lib" if lib_read_path else None
 

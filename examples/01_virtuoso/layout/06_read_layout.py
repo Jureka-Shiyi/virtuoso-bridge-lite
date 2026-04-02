@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from _timing import decode_skill, format_elapsed, timed_call
 from virtuoso_bridge import VirtuosoClient
+from virtuoso_bridge.virtuoso.layout.api import parse_layout_geometry_output
 
 
 def _format_value(value: object) -> str:
@@ -36,16 +37,16 @@ def main() -> int:
         print("Open a layout in Virtuoso first.")
         return 1
 
-    read_elapsed, response = timed_call(lambda: client.layout.read_geometry(lib, cell, timeout=30))
+    read_elapsed, result = timed_call(lambda: client.layout.read_geometry(lib, cell, timeout=30))
     print(f"[layout.read_geometry] [{format_elapsed(read_elapsed)}]")
     print()
 
-    output = decode_skill(response.get("result", {}).get("output", ""))
+    output = decode_skill(result.output or "")
     if output.startswith("ERROR"):
         print(output)
         return 1
 
-    geometry = response.get("geometry") or []
+    geometry = result.metadata.get("geometry") or parse_layout_geometry_output(result.output or "")
     print(json.dumps({"lib": lib, "cell": cell, "view": "layout"}, ensure_ascii=False))
     for obj in geometry:
         _print_object(obj)

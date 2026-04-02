@@ -32,7 +32,14 @@ from virtuoso_bridge.virtuoso.layout.ops import (
 if TYPE_CHECKING:
     from virtuoso_bridge import VirtuosoClient
 
-def _ensure_operation_response(response: dict, *, context: str) -> None:
+def _ensure_operation_response(response: Any, *, context: str) -> None:
+    from virtuoso_bridge.models import ExecutionStatus, VirtuosoResult
+    if isinstance(response, VirtuosoResult):
+        if response.status != ExecutionStatus.SUCCESS:
+            errors = response.errors or ["unknown failure"]
+            raise RuntimeError(f"{context} failed: {errors[0]}")
+        return
+    # Legacy dict fallback
     if not response.get("ok", False):
         raise RuntimeError(f"{context} failed: {response.get('error', 'request failed')}")
     result = response.get("result", {})

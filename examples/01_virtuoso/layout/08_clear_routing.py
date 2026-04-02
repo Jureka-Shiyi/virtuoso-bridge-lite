@@ -15,11 +15,11 @@ from virtuoso_bridge import VirtuosoClient
 def main() -> int:
     client = VirtuosoClient.from_env()
 
-    elapsed, response = timed_call(
+    elapsed, result = timed_call(
         lambda: client.layout.clear_routing(timeout=30)
     )
     print(f"[layout.clear_routing] [{format_elapsed(elapsed)}]")
-    print(decode_skill(response.get("result", {}).get("output", "")))
+    print(decode_skill(result.output or ""))
     return 0
 
 

@@ -22,19 +22,16 @@ def main() -> int:
         print("No active layout window.")
         return 1
 
-    close_elapsed, close_resp = timed_call(lambda: client.close_current_cellview(timeout=15))
-    if close_resp.get("ok", False):
+    close_elapsed, close_result = timed_call(lambda: client.close_current_cellview(timeout=15))
+    if close_result.ok:
         print(f"[close_current_cellview] [{format_elapsed(close_elapsed)}]")
-        close_result = close_resp.get("result", {})
-        if close_result.get("status") != "success":
-            errors = close_result.get("errors") or ["close failed"]
-            print(f"[close_current_cellview] {errors[0]}")
     else:
-        print(f"[close_current_cellview] failed: {close_resp.get('error', 'request failed')}")
+        errors = close_result.errors or ["close failed"]
+        print(f"[close_current_cellview] failed: {errors[0]}")
 
-    delete_elapsed, response = timed_call(lambda: client.layout.delete_cell(lib, cell, timeout=30))
+    delete_elapsed, result = timed_call(lambda: client.layout.delete_cell(lib, cell, timeout=30))
     print(f"[layout.delete_cell] [{format_elapsed(delete_elapsed)}]")
-    print(decode_skill(response.get("result", {}).get("output", "")))
+    print(decode_skill(result.output or ""))
     return 0
 
 

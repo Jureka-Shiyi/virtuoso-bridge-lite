@@ -2,7 +2,7 @@
 """Hello World — execute SKILL expressions and display return values locally.
 
 Prerequisites:
-- virtuoso-bridge service running (virtuoso-bridge start)
+- virtuoso-bridge tunnel running (virtuoso-bridge start)
 - RAMIC daemon loaded in Virtuoso CIW
 """
 import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
@@ -23,6 +23,5 @@ stmts = [
     r'printf("==============================================\n")',
 ]
 for stmt in stmts:
-    elapsed, response = timed_call(lambda s=stmt: client.execute_skill(s))
-    output = response.get("result", {}).get("output")
-    print(f"[OK] {stmt}  =>  {output!r}  [{format_elapsed(elapsed)}]")
+    elapsed, result = timed_call(lambda s=stmt: client.execute_skill(s))
+    print(f"[OK] {stmt}  =>  {result.output!r}  [{format_elapsed(elapsed)}]")

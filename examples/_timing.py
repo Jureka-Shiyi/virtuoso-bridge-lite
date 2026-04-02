@@ -33,24 +33,23 @@ def decode_skill(raw: str) -> str:
         return raw
 
 
-def print_load_il(resp: dict) -> None:
-    meta = resp.get("result", {}).get("metadata", {})
+def print_load_il(result: object) -> None:
+    meta = result.metadata  # type: ignore[union-attr]
     print(f"[load_il] {'uploaded' if meta.get('uploaded') else 'cache hit'}"
-          f"  [{format_elapsed(resp.get('_elapsed', 0.0))}]")
+          f"  [{format_elapsed(result.execution_time or 0.0)}]")  # type: ignore[union-attr]
 
 
-def print_execute(label: str, resp: dict) -> None:
-    print(f"[{label}] [{format_elapsed(resp.get('_elapsed', 0.0))}]")
+def print_execute(label: str, result: object) -> None:
+    print(f"[{label}] [{format_elapsed(result.execution_time or 0.0)}]")  # type: ignore[union-attr]
 
 
-def print_result(response: dict) -> None:
-    """Print output and errors from a VirtuosoClient response."""
-    result = response.get("result", {})
-    output = result.get("output")
-    errors = result.get("errors") or []
+def print_result(result: object) -> None:
+    """Print output and errors from a VirtuosoResult."""
+    output = result.output  # type: ignore[union-attr]
+    errors = result.errors or []  # type: ignore[union-attr]
     if output:
         print(output)
     for e in errors:
         print(f"[error] {e}")
     if not output and not errors:
-        print(f"[status] {result.get('status', 'unknown')}")
+        print(f"[status] {result.status.value}")  # type: ignore[union-attr]

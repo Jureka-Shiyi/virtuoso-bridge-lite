@@ -28,19 +28,19 @@ def main() -> int:
     cell = f"tmp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     client = VirtuosoClient.from_env()
 
-    load_elapsed, load_resp = timed_call(lambda: client.load_il(ASSETS / "schematic_ops.il"))
-    meta = load_resp.get("result", {}).get("metadata", {})
+    load_elapsed, load_result = timed_call(lambda: client.load_il(ASSETS / "schematic_ops.il"))
+    meta = load_result.metadata
     print(f"[load_il] {'uploaded' if meta.get('uploaded') else 'cache hit'}  [{format_elapsed(load_elapsed)}]")
-    load_elapsed, load_resp = timed_call(lambda: client.load_il(ASSETS / "create_rc.il"))
-    meta = load_resp.get("result", {}).get("metadata", {})
+    load_elapsed, load_result = timed_call(lambda: client.load_il(ASSETS / "create_rc.il"))
+    meta = load_result.metadata
     print(f"[load_il] {'uploaded' if meta.get('uploaded') else 'cache hit'}  [{format_elapsed(load_elapsed)}]")
     print(f"Library : {lib}\nCell    : {cell}")
 
-    exec_elapsed, response = timed_call(
+    exec_elapsed, result = timed_call(
         lambda: client.execute_skill(f'SchCreateRC("{lib}" "{cell}")', timeout=30)
     )
     print(f"[execute_skill] [{format_elapsed(exec_elapsed)}]")
-    print(decode_skill(response.get("result", {}).get("output", "")))
+    print(decode_skill(result.output or ""))
     return 0
 
 

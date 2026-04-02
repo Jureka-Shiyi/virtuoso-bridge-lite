@@ -35,17 +35,17 @@ def main() -> int:
             print("       or open a schematic in Virtuoso first.")
             return 1
 
-    load_elapsed, load_resp = timed_call(lambda: client.load_il(IL_FILE))
-    meta = load_resp.get("result", {}).get("metadata", {})
+    load_elapsed, load_result = timed_call(lambda: client.load_il(IL_FILE))
+    meta = load_result.metadata
     print(f"[load_il] {'uploaded' if meta.get('uploaded') else 'cache hit'}  [{format_elapsed(load_elapsed)}]")
 
-    exec_elapsed, response = timed_call(
+    exec_elapsed, result = timed_call(
         lambda: client.execute_skill(f'ReadSchematic("{lib}" "{cell}")', timeout=30)
     )
     print(f"[execute_skill] [{format_elapsed(exec_elapsed)}]")
     print()
 
-    output = decode_skill(response.get("result", {}).get("output", ""))
+    output = decode_skill(result.output or "")
     if not output or output.startswith("ERROR"):
         print(output or "No output returned.")
         return 1

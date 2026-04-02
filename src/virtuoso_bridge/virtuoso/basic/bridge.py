@@ -347,8 +347,7 @@ class VirtuosoClient(VirtuosoInterface):
     def open_window(self, lib: str, cell: str, *, view: str = "layout",
                     view_type: str | None = None, timeout: int | None = None) -> VirtuosoResult:
         effective_timeout = timeout if timeout is not None else self._timeout
-        actual_view_type = view_type or default_view_type_for(view)
-        skill = op_open_window(lib, cell, view, actual_view_type)
+        skill = op_open_window(lib, cell, view=view, view_type=view_type)
         return self.execute_skill(skill, timeout=effective_timeout)
 
     def save_current_cellview(self, timeout: int | None = None) -> VirtuosoResult:

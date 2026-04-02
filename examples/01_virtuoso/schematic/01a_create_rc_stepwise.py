@@ -39,10 +39,10 @@ def main() -> int:
     cell = f"rc_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     client = VirtuosoClient.from_env()
 
-    load_resp = client.load_il(IL_FILE)
-    meta = load_resp.get("result", {}).get("metadata", {})
+    load_result = client.load_il(IL_FILE)
+    meta = load_result.metadata
     print(f"[load_il] {'uploaded' if meta.get('uploaded') else 'cache hit'}"
-          f"  [{format_elapsed(load_resp.get('_elapsed', 0.0))}]")
+          f"  [{format_elapsed(load_result.execution_time or 0.0)}]")
 
     print(f"Library : {lib}")
     print(f"Cell    : {cell}")
@@ -62,18 +62,17 @@ def main() -> int:
         'SchSave()',                                        # 12. schCheck + save
     ]
 
-    elapsed, response = timed_call(lambda: client.execute_operations(commands, timeout=30))
+    elapsed, result = timed_call(lambda: client.execute_operations(commands, timeout=30))
     print(f"[execute_operations] [{format_elapsed(elapsed)}]")
 
-    result = response.get("result", {})
-    output = _decode(result.get("output", ""))
-    errors = result.get("errors") or []
+    output = _decode(result.output or "")
+    errors = result.errors or []
     if output:
         print(output)
     for e in errors:
         print(f"[error] {e}")
     if not output and not errors:
-        print(f"[status] {result.get('status', 'unknown')}")
+        print(f"[status] {result.status.value}")
     return 0
 
 

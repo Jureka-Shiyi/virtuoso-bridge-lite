@@ -27,10 +27,9 @@ def _decode(raw: str) -> str:
 def main() -> int:
     client = VirtuosoClient.from_env()
 
-    load_resp = client.load_il(IL_FILE)
-    load_meta = load_resp.get("result", {}).get("metadata", {})
-    print(f"[load_il] {'uploaded' if load_meta.get('uploaded') else 'cache hit'}"
-          f"  [{format_elapsed(load_resp.get('_elapsed', 0.0))}]")
+    load_result = client.load_il(IL_FILE)
+    print(f"[load_il] {'uploaded' if load_result.metadata.get('uploaded') else 'cache hit'}"
+          f"  [{format_elapsed(load_result.execution_time or 0.0)}]")
 
     # Get lib/cell from the open window, then delete
     skill = (
@@ -42,17 +41,16 @@ def main() -> int:
         'SchDeleteCell(lib cell))'
     )
 
-    response = client.execute_skill(skill, timeout=30)
-    print(f"[execute_skill] [{format_elapsed(response.get('_elapsed', 0.0))}]")
-    result = response.get("result", {})
-    output = _decode(result.get("output", ""))
-    errors = result.get("errors") or []
+    result = client.execute_skill(skill, timeout=30)
+    print(f"[execute_skill] [{format_elapsed(result.execution_time or 0.0)}]")
+    output = _decode(result.output or "")
+    errors = result.errors or []
     if output:
         print(output)
     for e in errors:
         print(f"[error] {e}")
     if not output and not errors:
-        print(f"[status] {result.get('status', 'unknown')}")
+        print(f"[status] {result.status.value}")
     return 0
 
 

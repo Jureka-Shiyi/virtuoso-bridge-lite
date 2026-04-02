@@ -37,8 +37,8 @@ def main() -> int:
         return 1
     print(f"Design: {lib}/{cell}/{view}")
 
-    load_elapsed, load_resp = timed_call(lambda: client.load_il(IL_FILE))
-    meta = load_resp.get("result", {}).get("metadata", {})
+    load_elapsed, load_result = timed_call(lambda: client.load_il(IL_FILE))
+    meta = load_result.metadata
     print(f"[load_il] {'uploaded' if meta.get('uploaded') else 'cache hit'}  [{format_elapsed(load_elapsed)}]")
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -48,29 +48,24 @@ def main() -> int:
     )
     print(f"[run_shell_command] [{format_elapsed(shell_elapsed)}]")
 
-    exec_elapsed, response = timed_call(
+    exec_elapsed, result = timed_call(
         lambda: client.execute_skill(
             f'takeScreenshot("{escape_skill_string(remote_path)}")', timeout=20
         )
     )
     print(f"[execute_skill] [{format_elapsed(exec_elapsed)}]")
-    print(decode_skill(response.get("result", {}).get("output", "")))
+    print(decode_skill(result.output or ""))
 
     local_path = OUTPUT_DIR / Path(remote_path).name
-    download_elapsed, download_resp = timed_call(
+    download_elapsed, dl_result = timed_call(
         lambda: client.download_file(remote_path, local_path, timeout=30)
     )
-    if not download_resp.get("ok", False):
-        print(f"[download] failed: {download_resp.get('error', 'request failed')}")
+    if not dl_result.ok:
+        print(f"[download] failed: {dl_result.errors[0] if dl_result.errors else 'request failed'}")
         return 1
-    result = download_resp.get("result", {})
-    if result.get("status") == "success":
-        print(f"[download] [{format_elapsed(download_elapsed)}]")
-        print(f"Local screenshot: {result.get('output')}")
-        return 0
-    errors = result.get("errors") or ["download failed"]
-    print(f"[download] failed: {errors[0]}")
-    return 1
+    print(f"[download] [{format_elapsed(download_elapsed)}]")
+    print(f"Local screenshot: {dl_result.output}")
+    return 0
 
 
 if __name__ == "__main__":

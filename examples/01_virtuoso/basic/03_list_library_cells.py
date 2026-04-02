@@ -27,22 +27,21 @@ def _decode(raw: str) -> str:
 
 def main() -> int:
     client = VirtuosoClient.from_env()
-    load_resp = client.load_il(IL_FILE)
-    load_meta = load_resp.get("result", {}).get("metadata", {})
-    upload_tag = "uploaded" if load_meta.get("uploaded") else "cache hit"
-    print(f"[load_il] {upload_tag}  [{format_elapsed(load_resp.get('_elapsed', 0.0))}]")
+    load_result = client.load_il(IL_FILE)
+    upload_tag = "uploaded" if load_result.metadata.get("uploaded") else "cache hit"
+    print(f"[load_il] {upload_tag}  [{format_elapsed(load_result.execution_time or 0.0)}]")
 
     if len(sys.argv) < 2:
-        response = client.execute_skill("ListLibraries()", timeout=20)
-        print(f"[execute_skill] [{format_elapsed(response.get('_elapsed', 0.0))}]")
-        for lib in filter(None, _decode(response.get("result", {}).get("output", "")).splitlines()):
+        result = client.execute_skill("ListLibraries()", timeout=20)
+        print(f"[execute_skill] [{format_elapsed(result.execution_time or 0.0)}]")
+        for lib in filter(None, _decode(result.output or "").splitlines()):
             print(f"  {lib}")
         return 0
 
     lib_name = sys.argv[1]
-    response = client.execute_skill(f'ListLibraryCells("{lib_name}")', timeout=20)
-    print(f"[execute_skill] [{format_elapsed(response.get('_elapsed', 0.0))}]")
-    for row in filter(None, _decode(response.get("result", {}).get("output", "")).splitlines()):
+    result = client.execute_skill(f'ListLibraryCells("{lib_name}")', timeout=20)
+    print(f"[execute_skill] [{format_elapsed(result.execution_time or 0.0)}]")
+    for row in filter(None, _decode(result.output or "").splitlines()):
         cell, _, views = row.partition("|views=")
         print(f"  {cell:<20} [{views.strip()}]")
     return 0
