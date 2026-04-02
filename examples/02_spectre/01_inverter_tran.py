@@ -110,13 +110,6 @@ def main(argv: list[str] | None = None) -> int:
 
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
-    pdk_include = os.getenv("VB_PDK_SPECTRE_INCLUDE", "")
-    if not pdk_include:
-        raise SystemExit("Set VB_PDK_SPECTRE_INCLUDE in .env (path to PDK spectre model file on the remote machine).")
-    text = NETLIST.read_text(encoding="utf-8")
-    text = text.replace("@@VB_PDK_SPECTRE_INCLUDE@@", pdk_include)
-    RUN_NETLIST.write_text(text, encoding="utf-8")
-
     spectre_cmd = os.getenv("SPECTRE_CMD", "spectre")
     print(f"[Run] Running Spectre remotely in mode '{mode}' (reads VB_REMOTE_HOST from .env) ...")
     sim = SpectreSimulator.from_env(
@@ -126,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         output_format="psfascii",
     )
 
-    result = sim.run_simulation(RUN_NETLIST, {})
+    result = sim.run_simulation(NETLIST, {})
 
     print(f"[Status] {result.status.value}")
     print_result_counts(result)

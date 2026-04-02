@@ -560,6 +560,8 @@ class SpectreSimulator:
                 ssh_key_path=self._ssh_key_path,
                 ssh_config_path=self._ssh_config_path,
                 timeout=self._timeout,
+                persistent_shell=True,
+                verbose=True,
             )
         return self._ssh_runner
 

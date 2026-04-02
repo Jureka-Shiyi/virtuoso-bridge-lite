@@ -37,9 +37,6 @@ def _parse_args(argv: list[str]) -> bool:
 
 
 def _build_netlist(base_text: str, vcm: float) -> str:
-    pdk_toplevel = os.getenv("VB_PDK_SPECTRE_TOPLEVEL", "")
-    if not pdk_toplevel:
-        raise SystemExit("Set VB_PDK_SPECTRE_TOPLEVEL in .env (path to PDK spectre toplevel file on the remote machine).")
     lines_out: list[str] = []
     for line in base_text.splitlines():
         stripped = line.strip()
@@ -50,8 +47,7 @@ def _build_netlist(base_text: str, vcm: float) -> str:
             )
         else:
             lines_out.append(line)
-    result = "\n".join(lines_out) + "\n"
-    return result.replace("@@VB_PDK_SPECTRE_TOPLEVEL@@", pdk_toplevel)
+    return "\n".join(lines_out) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:

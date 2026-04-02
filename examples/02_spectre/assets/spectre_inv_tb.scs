@@ -5,13 +5,13 @@
 // Design view name: schematic
 simulator lang=spectre
 global 0
-include "@@VB_PDK_SPECTRE_INCLUDE@@" section=pre_simu
-include "@@VB_PDK_SPECTRE_INCLUDE@@" section=noise_worst
-include "@@VB_PDK_SPECTRE_INCLUDE@@" section=ttmacro_mos_moscap
-include "@@VB_PDK_SPECTRE_INCLUDE@@" section=tt_res_bip_dio_disres
-include "@@VB_PDK_SPECTRE_INCLUDE@@" section=tt_mom
-include "@@VB_PDK_SPECTRE_INCLUDE@@" section=tt_ind_jvar
-include "@@VB_PDK_SPECTRE_INCLUDE@@" section=tt_r_metal
+include "/home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/../models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs" section=pre_simu
+include "/home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/../models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs" section=noise_worst
+include "/home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/../models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs" section=ttmacro_mos_moscap
+include "/home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/../models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs" section=tt_res_bip_dio_disres
+include "/home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/../models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs" section=tt_mom
+include "/home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/../models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs" section=tt_ind_jvar
+include "/home/process/tsmc28n/PDK_mmWave/iPDK_CRN28HPC+ULL_v1.8_2p2a_20190531/tsmcN28/../models/spectre/crn28ull_1d8_elk_v1d8_2p2_shrink0d9_embedded_usage.scs" section=tt_r_metal
 
 // Library name: LLM_Layout_Design
 // Cell name: inv
