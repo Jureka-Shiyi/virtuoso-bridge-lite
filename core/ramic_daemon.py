@@ -16,6 +16,7 @@ import fcntl
 import json
 import errno
 import time
+import re
 
 HOST = sys.argv[1]
 PORT = int(sys.argv[2])
@@ -65,8 +66,16 @@ def handle(conn):
         chunks.append(chunk)
     req = json.loads(b"".join(chunks))
 
+    # Flatten multi-line SKILL into a single line so that Virtuoso's
+    # ipcBeginProcess (which fires the data handler per line) receives
+    # the entire expression in one callback.  Strip ; comments first
+    # because they would swallow everything after them on the joined line.
+    # The regex skips semicolons inside "quoted strings".
+    skill = re.sub(r'"[^"]*"|;[^\n]*', lambda m: m.group() if m.group().startswith('"') else ' ', req["skill"])
+    skill = ' '.join(skill.split())                  # collapse whitespace
+
     # Send SKILL to Virtuoso
-    sys.stdout.write(req["skill"])
+    sys.stdout.write(skill)
     sys.stdout.flush()
 
     # Read result
