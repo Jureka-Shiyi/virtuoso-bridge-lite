@@ -56,6 +56,20 @@ def read_result():
     return bytes(buf)
 
 
+_BLOCKED_FNS = re.compile(
+    r'(?<!["\w])(shell|system|ipcBeginProcess|getShellEnvVar|sstGetUserName)\s*\(',
+)
+
+
+def _check_skill(skill: str) -> None:
+    """Reject SKILL code that calls dangerous shell-access functions."""
+    # Strip string literals so we don't false-positive on quoted names.
+    stripped = re.sub(r'"[^"]*"', '""', skill)
+    m = _BLOCKED_FNS.search(stripped)
+    if m:
+        raise ValueError(f"Blocked SKILL function: {m.group(1)!r}")
+
+
 def handle(conn):
     """Handle one client request."""
     chunks = []
@@ -73,6 +87,8 @@ def handle(conn):
     # The regex skips semicolons inside "quoted strings".
     skill = re.sub(r'"[^"]*"|;[^\n]*', lambda m: m.group() if m.group().startswith('"') else ' ', req["skill"])
     skill = ' '.join(skill.split())                  # collapse whitespace
+
+    _check_skill(skill)
 
     # Send SKILL to Virtuoso
     sys.stdout.write(skill)
