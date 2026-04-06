@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Create an RC low-pass filter, run AC analysis, and compare C=1pF vs C=100fF.
 
-End-to-end example:
+End-to-end example using the maestro Python API:
 1. Create schematic (vdc source + R + C + GND)
 2. Set component parameters via CDF
 3. Create Maestro view with AC analysis + parametric sweep on C
    - Add bandwidth measurement output with spec (BW > 1 GHz)
 4. Run simulation (single run covers both C values)
 5. Read & compare the AC magnitude responses + check spec
-6. Open Maestro GUI with results
+6. Export waveforms via export_waveform API
+7. Open Maestro GUI with results
 
 Prerequisites:
 - virtuoso-bridge tunnel running
@@ -29,7 +30,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
 
 from _timing import format_elapsed, timed_call
 from virtuoso_bridge import VirtuosoClient
-from virtuoso_bridge.virtuoso.maestro import export_waveform
+from virtuoso_bridge.virtuoso.maestro import (
+    open_session,
+    close_session,
+    create_test,
+    set_analysis,
+    add_output,
+    set_spec,
+    set_var,
+    save_setup,
+    run_simulation,
+    wait_until_done,
+    read_results,
+    export_waveform,
+)
 
 LIB = "PLAYGROUND_LLM"
 # Use timestamp to avoid cell name collisions across runs
@@ -44,17 +58,14 @@ REMOTE_TMP = "/tmp/rc_filter_ac"
 # ---------------------------------------------------------------------------
 
 def skill(client: VirtuosoClient, expr: str, **kw) -> "VirtuosoResult":
-    """Shorthand for execute_skill with error checking."""
+    """Shorthand for execute_skill (used for schematic/CDF ops that have no Python API)."""
     r = client.execute_skill(expr, **kw)
     return r
 
 
 def set_cdf_param(client: VirtuosoClient, cv_var: str, inst_name: str,
                   param: str, value: str) -> None:
-    """Set a CDF parameter on a schematic instance.
-
-    Uses ``cdfFindParamByName(cdfGetInstCDF(inst), param)~>value = value``.
-    """
+    """Set a CDF parameter on a schematic instance."""
     r = client.execute_skill(
         f'cdfFindParamByName(cdfGetInstCDF('
         f'car(setof(i {cv_var}~>instances i~>name == "{inst_name}")))'
@@ -94,7 +105,6 @@ def parse_ocnprint_sets(text: str) -> dict[str, list[tuple[float, float]]]:
         parts = line.split()
         if not parts:
             continue
-        # Look for the sweep variable header: "c_val  1.000e-13  1.000e-12"
         if parts[0].isidentifier() and len(parts) >= 2:
             try:
                 vals = [float(p) for p in parts[1:]]
@@ -105,7 +115,6 @@ def parse_ocnprint_sets(text: str) -> dict[str, list[tuple[float, float]]]:
                 continue
 
     if sweep_values:
-        # Column format: each data row has freq + N values
         result: dict[str, list[tuple[float, float]]] = {
             sv: [] for sv in sweep_values
         }
@@ -155,19 +164,7 @@ def parse_ocnprint_sets(text: str) -> dict[str, list[tuple[float, float]]]:
 # ---------------------------------------------------------------------------
 
 def create_schematic(client: VirtuosoClient) -> None:
-    """Create an RC low-pass filter schematic.
-
-    Circuit::
-
-        V0(+) ---[R0 1k]--- OUT ---+
-                                    |
-        V0(-)                     [C0 c_val]
-          |                         |
-         GND0                     GND1
-
-    V0 is a vdc source with AC magnitude = 1.
-    C0 uses the design variable ``c_val`` so Maestro can sweep it.
-    """
+    """Create an RC low-pass filter schematic."""
     print("[schematic] Creating RC filter...")
 
     with client.schematic.edit(LIB, CELL) as sch:
@@ -190,7 +187,6 @@ def create_schematic(client: VirtuosoClient) -> None:
     set_cdf_param(client, cv, "R0", "r", "1k")
     set_cdf_param(client, cv, "C0", "c", "c_val")   # design variable for sweep
 
-    # Check & save (required before simulation!)
     skill(client, f"schCheck({cv})")
     skill(client, f"dbSave({cv})")
 
@@ -200,68 +196,47 @@ def create_schematic(client: VirtuosoClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. Create Maestro view
+# 2. Create Maestro view (using Python API)
 # ---------------------------------------------------------------------------
 
 def create_maestro(client: VirtuosoClient) -> str:
-    """Create a Maestro view with AC analysis and return the session string.
-
-    Key API sequence::
-
-        maeOpenSetup -> maeCreateTest -> maeSetAnalysis -> maeAddOutput
-        -> maeSetVar -> maeSaveSetup
-
-    Notes:
-    - ``?session`` must be a SKILL *string* (e.g. ``"fnxSession4"``).
-    - Comma-separated values in ``maeSetVar`` create a parametric sweep.
-    - ``maeSetAnalysis("tran" ?enable nil)`` disables the default tran.
-    """
+    """Create a Maestro view with AC analysis and return the session string."""
     print("[maestro] Creating Maestro view...")
 
-    r = skill(client, f'maeOpenSetup("{LIB}" "{CELL}" "maestro")')
-    session = r.output.strip('"')
+    session = open_session(client, LIB, CELL)
     print(f"[maestro] Session: {session}")
 
     # Create test pointing to the schematic
-    skill(client,
-          f'maeCreateTest("AC" ?lib "{LIB}" ?cell "{CELL}" '
-          f'?view "schematic" ?simulator "spectre" ?session "{session}")')
+    create_test(client, "AC", lib=LIB, cell=CELL, session=session)
 
     # Disable default tran, enable AC (1 Hz to 10 GHz, 20 pts/decade)
-    skill(client, f'maeSetAnalysis("AC" "tran" ?enable nil ?session "{session}")')
-    skill(client,
-          f'maeSetAnalysis("AC" "ac" ?enable t '
-          f'?options `(("start" "1") ("stop" "10G") '
-          f'("incrType" "Logarithmic") ("stepTypeLog" "Points Per Decade") '
-          f'("dec" "20")) ?session "{session}")')
-
-    # NOTE: Spectre X mode and accuracy preset (CX/AX/MX/LX/VX) must be
-    # configured manually in the Maestro GUI via Options → High-Performance
-    # Simulation Options. These settings are not exposed through mae* SKILL API.
+    set_analysis(client, "AC", "tran", enable=False, session=session)
+    set_analysis(client, "AC", "ac",
+                 options='(("start" "1") ("stop" "10G") '
+                         '("incrType" "Logarithmic") ("stepTypeLog" "Points Per Decade") '
+                         '("dec" "20"))',
+                 session=session)
 
     # Add output: waveform
-    skill(client,
-          f'maeAddOutput("Vout" "AC" ?outputType "net" '
-          f'?signalName "/OUT" ?session "{session}")')
+    add_output(client, "Vout", "AC",
+               output_type="net", signal_name="/OUT", session=session)
 
     # Add output: -3 dB bandwidth measurement
     # NOTE: use VF() (frequency-domain voltage) not v() in Maestro expressions
-    skill(client,
-          f'maeAddOutput("BW" "AC" ?outputType "point" '
-          f'?expr "bandwidth(mag(VF(\\"/OUT\\")) 3 \\"low\\")" '
-          f'?session "{session}")')
+    add_output(client, "BW", "AC",
+               output_type="point",
+               expr='bandwidth(mag(VF(\\"/OUT\\")) 3 \\"low\\")',
+               session=session)
 
     # Add spec: bandwidth > 1 GHz
-    skill(client, f'maeSetSpec("BW" "AC" ?gt "1G" ?session "{session}")')
+    set_spec(client, "BW", "AC", gt="1G", session=session)
 
     # Set design variable with comma-separated sweep values
     sweep_str = ",".join(C_VALUES)
-    skill(client, f'maeSetVar("c_val" "{sweep_str}" ?session "{session}")')
+    set_var(client, "c_val", sweep_str, session=session)
 
     # Save
-    skill(client,
-          f'maeSaveSetup(?lib "{LIB}" ?cell "{CELL}" '
-          f'?view "maestro" ?session "{session}")')
+    save_setup(client, LIB, CELL, session=session)
 
     print(f"[maestro] AC: 1 Hz - 10 GHz, 20 pts/dec | sweep c_val: {sweep_str}")
     return session
@@ -271,22 +246,14 @@ def create_maestro(client: VirtuosoClient) -> str:
 # 3. Run simulation
 # ---------------------------------------------------------------------------
 
-def run_simulation(client: VirtuosoClient, session: str) -> str:
-    """Run simulation and return the results directory.
-
-    The parametric sweep runs all C values in a single simulation.
-    """
+def run_sim(client: VirtuosoClient, session: str) -> str:
+    """Run simulation and return the results directory."""
     print("[sim] Running AC simulation...")
 
-    # Synchronous run: ?waitUntilDone t blocks until simulation finishes
-    elapsed, r = timed_call(
-        lambda: skill(client,
-                      f'maeRunSimulation(?waitUntilDone t ?session "{session}")',
-                      timeout=300)
-    )
-    run_name = r.output.strip('"') if r.output else ""
-    if not run_name or "Interactive" not in run_name:
-        raise RuntimeError(f"Simulation failed to start: {r.output} {r.errors}")
+    elapsed, _ = timed_call(lambda: (
+        run_simulation(client, session=session),
+        wait_until_done(client, timeout=300),
+    ))
 
     # Get results directory
     r = skill(client, "asiGetResultsDir(asiGetCurrentSession())")
@@ -302,17 +269,17 @@ def run_simulation(client: VirtuosoClient, session: str) -> str:
         if alt and "Interactive" in alt:
             results_dir = alt
 
-    print(f"[sim] {run_name} complete  [{format_elapsed(elapsed)}]")
+    print(f"[sim] Complete  [{format_elapsed(elapsed)}]")
     print(f"[sim] Results: {results_dir}")
     return results_dir
 
 
 # ---------------------------------------------------------------------------
-# 4. Read results
+# 4. Read results via OCEAN
 # ---------------------------------------------------------------------------
 
-def read_results(client: VirtuosoClient,
-                 results_dir: str) -> dict[str, list[tuple[float, float]]]:
+def read_results_ocean(client: VirtuosoClient,
+                       results_dir: str) -> dict[str, list[tuple[float, float]]]:
     """Read AC magnitude via OCEAN and return per-sweep-value data."""
     remote_file = f"{REMOTE_TMP}_db.txt"
     local_file = Path("output/rc_filter_sweep_db.txt")
@@ -350,7 +317,6 @@ def compare_results(datasets: dict[str, list[tuple[float, float]]]) -> None:
     """Print a comparison table and estimate -3 dB frequencies."""
     freqs_of_interest = [1e6, 1e7, 1e8, 1e9, 1e10]
 
-    # Header
     labels = list(datasets.keys())
     header = "freq (Hz)".ljust(14)
     for label in labels:
@@ -367,7 +333,6 @@ def compare_results(datasets: dict[str, list[tuple[float, float]]]) -> None:
             line += f"{closest[1]:>13.2f} dB"
         print(line)
 
-    # Estimate -3 dB frequency
     print(f"\n--- Estimated -3 dB frequency ---")
     for label in labels:
         data = datasets[label]
@@ -386,36 +351,20 @@ def compare_results(datasets: dict[str, list[tuple[float, float]]]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 5b. Check specs
+# 5b. Check specs via Maestro API
 # ---------------------------------------------------------------------------
 
-def check_specs(client: VirtuosoClient) -> None:
-    """Check bandwidth spec results via Maestro API.
-
-    Uses ``maeGetOutputValue`` to read the BW measurement and
-    ``maeGetSpecStatus`` to check pass/fail for each sweep point.
-
-    With parametric sweeps, each sweep point has a ``pointId``
-    (starting from 1).
-    """
+def check_specs(client: VirtuosoClient, session: str) -> None:
+    """Check bandwidth spec results via read_results."""
     print("\n--- Bandwidth spec (BW > 1 GHz) ---")
 
-    r = skill(client, "maeOpenResults()")
-
-    # Iterate over sweep points (pointId starts at 1)
-    for pid in range(1, len(C_VALUES) + 1):
-        r_bw = skill(client, f'maeGetOutputValue("BW" "AC" ?pointId {pid})')
-        r_spec = skill(client, f'maeGetSpecStatus("BW" "AC" ?pointId {pid})')
-        bw = r_bw.output if r_bw.output else "N/A"
-        status = r_spec.output.strip('"') if r_spec.output else "?"
-        try:
-            bw_hz = float(bw)
-            bw_str = f"{bw_hz:.3e} Hz"
-        except (ValueError, TypeError):
-            bw_str = bw
-        print(f"  point {pid}: BW = {bw_str}  [{status}]")
-
-    skill(client, "maeCloseResults()")
+    results = read_results(client, session)
+    if results:
+        for key, (expr, raw) in results.items():
+            if "OutputValue" in key or "SpecStatus" in key or "Overall" in key:
+                print(f"  [{key}] {raw}")
+    else:
+        print("  (no results)")
 
 
 # ---------------------------------------------------------------------------
@@ -427,14 +376,12 @@ def export_waveforms(client: VirtuosoClient, session: str) -> None:
     output_dir = Path("output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # AC magnitude (dB)
     path = export_waveform(client, session,
         'dB20(mag(v("/OUT")))',
         str(output_dir / "rc_ac_mag_db.txt"),
         analysis="ac")
     print(f"[export] AC magnitude: {path}")
 
-    # AC phase
     path = export_waveform(client, session,
         'phase(v("/OUT"))',
         str(output_dir / "rc_ac_phase.txt"),
@@ -448,21 +395,7 @@ def export_waveforms(client: VirtuosoClient, session: str) -> None:
 
 def open_maestro_with_history(client: VirtuosoClient,
                               results_dir: str) -> None:
-    """Open the Maestro GUI and display the latest simulation history.
-
-    Steps:
-    1. Close all existing mae sessions (edit mode is exclusive).
-    2. List available histories from the simulation results directory.
-    3. Open maestro window, make editable, restore history, save.
-    """
-    # Close all existing sessions
-    r = skill(client, "maeGetSessions()")
-    if r.output and r.output.strip() not in ("nil", ""):
-        for session in r.output.strip("()").replace('"', "").split():
-            if session:
-                skill(client,
-                      f'maeCloseSession(?session "{session}" ?forceClose t)')
-
+    """Open the Maestro GUI and display the latest simulation history."""
     # Find history names from results directory
     m = re.match(r"(.*/maestro/results/maestro/)", results_dir)
     if not m:
@@ -484,8 +417,7 @@ def open_maestro_with_history(client: VirtuosoClient,
           f'deOpenCellView("{LIB}" "{CELL}" "maestro" "maestro" nil "r")')
     skill(client, "maeMakeEditable()")
     skill(client, f'maeRestoreHistory("{latest}")')
-    skill(client,
-          f'maeSaveSetup(?lib "{LIB}" ?cell "{CELL}" ?view "maestro")')
+    save_setup(client, LIB, CELL)
     print(f"[open] Maestro opened with {latest}")
 
 
@@ -503,11 +435,11 @@ def main() -> int:
     # 2. Create Maestro with AC + sweep
     session = create_maestro(client)
 
-    # 3. Run (single run, sweep handles both C values)
-    results_dir = run_simulation(client, session)
+    # 3. Run
+    results_dir = run_sim(client, session)
 
-    # 4. Read results
-    datasets = read_results(client, results_dir)
+    # 4. Read results via OCEAN
+    datasets = read_results_ocean(client, results_dir)
 
     # 5. Compare
     if datasets:
@@ -517,12 +449,13 @@ def main() -> int:
         return 1
 
     # 5b. Check spec via Maestro API
-    check_specs(client)
+    check_specs(client, session)
 
-    # 5c. Export waveform using export_waveform API
+    # 5c. Export waveforms
     export_waveforms(client, session)
 
     # 6. Open Maestro GUI with latest history
+    close_session(client, session)
     open_maestro_with_history(client, results_dir)
 
     return 0
