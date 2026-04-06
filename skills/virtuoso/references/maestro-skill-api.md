@@ -499,7 +499,9 @@ client.download_file('/tmp/results.csv', 'output/results.csv')
 - `examples/01_virtuoso/maestro/03_bg_open_read_close_maestro.py` — background open → read config → close
 - `examples/01_virtuoso/maestro/04_read_env.py` — read environment settings
 - `examples/01_virtuoso/maestro/05_read_results.py` — read simulation results
-- `examples/01_virtuoso/maestro/06_rc_filter_sweep.py` — full workflow: create + simulate + read
+- `examples/01_virtuoso/maestro/06a_rc_create.py` — create RC schematic + Maestro setup
+- `examples/01_virtuoso/maestro/06b_rc_simulate.py` — run simulation
+- `examples/01_virtuoso/maestro/06c_rc_read_results.py` — read results, export waveforms, open GUI
 
 ## See also
 

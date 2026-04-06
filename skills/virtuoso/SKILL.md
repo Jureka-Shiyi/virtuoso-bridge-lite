@@ -109,7 +109,9 @@ Load on demand — each contains detailed API docs and edge-case guidance:
 - `03_bg_open_read_close_maestro.py` — background open → read config → close
 - `04_read_env.py` — read environment settings (model files, sim options, run mode)
 - `05_read_results.py` — read simulation results (output values, specs, yield)
-- `06_rc_filter_sweep.py` — full workflow: create schematic, AC analysis, sweep, specs, results
+- `06a_rc_create.py` — create RC schematic + Maestro setup
+- `06b_rc_simulate.py` — run simulation
+- `06c_rc_read_results.py` — read results, export waveforms, open GUI
 
 ## Related skills
 
