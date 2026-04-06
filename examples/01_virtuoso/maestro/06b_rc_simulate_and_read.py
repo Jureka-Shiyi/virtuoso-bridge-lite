@@ -64,14 +64,13 @@ t
     client.execute_skill('maeMakeEditable()')
     print("[gui] Maestro opened")
 
-    # 3. Start simulation + wait
-    client.execute_skill('errset(maeCloseResults())')  # clear stale results
+    # 3. Start simulation
     t0 = time.time()
     r = client.execute_skill('maeRunSimulation()')
     run_name = (r.output or "").strip('"')
     print(f"[sim] Started: {run_name}")
 
-    # 4. Poll maeGetResultOutputs (non-blocking, ~100ms per call, LSCS parallel)
+    # 4. Wait via axlSessionConnect callback (fully non-blocking)
     print("[sim] Waiting...")
     wait_until_done(client, timeout=600)
     print(f"[sim] Done ({time.time() - t0:.1f}s)")
