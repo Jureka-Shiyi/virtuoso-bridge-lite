@@ -25,8 +25,12 @@ RBDLog = nil                                                                    
 unless(boundp('RBIpc) RBIpc = 'unbound)
 
 procedure(RBIpcDataHandler(ipcId data)
-  ; Handler for successful data received from the Python daemon
-  ; This function is called when the daemon sends back Virtuoso's response
+  ; Handler for successful data received from the Python daemon.
+  ; Code is executed via evalstring(), which bypasses CIW's interactive loop.
+  ; As a result, CIW output (printf) is line-buffered: only text ending with
+  ; "\n" is flushed immediately.  Without "\n", output stays in the buffer
+  ; until the next newline or explicit flush.  This differs from typing
+  ; directly in CIW, where the interactive loop flushes after every command.
   let((result)
     when(RBEcho printf("[RAMIC Bridge (%L)] receive:%L\n" ipcId data))
     if(errset(result=evalstring(data)) then

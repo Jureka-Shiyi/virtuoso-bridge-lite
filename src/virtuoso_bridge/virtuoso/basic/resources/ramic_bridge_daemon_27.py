@@ -213,9 +213,9 @@ def handle_external_connection(conn, addr):
             f.write("_vb_eval_result = progn(\n%s\n)\n" % code_str)
             f.close()
             escaped_path = tmp_il_path.replace("\\", "/")
-            send_code = 'load("%s") _vb_eval_result\n' % escaped_path
+            send_code = 'load("%s") hiFlush() _vb_eval_result\n' % escaped_path
         else:
-            send_code = skill_code
+            send_code = '%s hiFlush()' % skill_code
 
         sys.stdout.write(send_code)
         sys.stdout.flush()

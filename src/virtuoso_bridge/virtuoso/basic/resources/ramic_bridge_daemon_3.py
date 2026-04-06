@@ -155,9 +155,9 @@ def handle_external_connection(conn, addr):
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(f"_vb_eval_result = progn(\n{skill_code}\n)\n")
             escaped_path = tmp_il_path.replace("\\", "/")
-            send_code = f'load("{escaped_path}") _vb_eval_result\n'
+            send_code = f'load("{escaped_path}") hiFlush() _vb_eval_result\n'
         else:
-            send_code = skill_code
+            send_code = f'{skill_code} hiFlush()'
 
         sys.stdout.buffer.write(send_code.encode("utf-8"))
         sys.stdout.buffer.flush()
