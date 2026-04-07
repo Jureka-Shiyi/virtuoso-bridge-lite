@@ -38,6 +38,7 @@ The optimizer iteratively picks parameter values, evaluates them, and converges 
 ## Prerequisites
 
 - For TuRBO: `pip install torch gpytorch` and local TuRBO install (`pip install -e TuRBO/`)
+  - TuRBO (Trust Region Bayesian Optimization) comes from [uber-research/TuRBO](https://github.com/uber-research/TuRBO)
 - For scipy: included in standard Python scientific stack
 
 ## Core pattern
