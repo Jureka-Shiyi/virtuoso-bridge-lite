@@ -15,5 +15,5 @@ optimization/
 reference/
 .vscode/
 .DS_Store
-.claude/settings.local.json
+.claude/
 spectre.out
