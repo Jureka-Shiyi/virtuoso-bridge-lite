@@ -232,6 +232,19 @@ pip install -e ".[dev]"
 pytest
 ```
 
+## Windows: fix symlinks
+
+Git on Windows clones symlinks as plain text files (`core.symlinks = false`),
+which breaks skill loading for any agent that follows `.claude/skills/` (or
+similar) links. Run this **once** after cloning:
+
+```bash
+bash scripts/fix-symlinks.sh
+```
+
+The script replaces broken symlinks with NTFS junctions — no admin rights, no
+Developer Mode required.
+
 ## Skills
 
 | Skill | File | Covers |
