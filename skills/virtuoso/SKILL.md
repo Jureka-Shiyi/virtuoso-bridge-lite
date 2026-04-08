@@ -79,6 +79,21 @@ client.open_window(lib, cell, view="layout")     # open GUI window
 client.run_shell_command("ls /tmp/")             # run shell on remote
 ```
 
+### CIW output vs return value
+
+`execute_skill()` returns the result to Python but does **not** print anything in the CIW window. This is by design — the bridge is a programmatic API, not an interactive REPL.
+
+```python
+# Return value only — CIW stays silent
+r = client.execute_skill("1+2")        # Python gets 3, CIW shows nothing
+
+# To also display in CIW, use printf explicitly
+r = client.execute_skill(r'let((v) v=1+2 printf("1+2 = %d\n" v) v)')
+#   Python gets 3, CIW shows "1+2 = 3"
+```
+
+Full example: `examples/01_virtuoso/basic/00_ciw_output_vs_return.py`
+
 ## Printing multi-line text to CIW
 
 Sending multiple `printf` in a single `execute_skill()` loses newlines — the CIW concatenates everything on one line. To print multi-line text, write it as a Python multiline string and send one `execute_skill()` per line:
@@ -127,6 +142,7 @@ Load on demand — each contains detailed API docs and edge-case guidance:
 **Always check these before writing new code.**
 
 ### `examples/01_virtuoso/basic/`
+- `00_ciw_output_vs_return.py` — CIW output vs Python return value (when CIW prints, when it doesn't)
 - `01_execute_skill.py` — run arbitrary SKILL expressions
 - `02_ciw_print.py` — print messages to CIW (one `execute_skill` per line)
 - `03_load_il.py` — upload and load .il files

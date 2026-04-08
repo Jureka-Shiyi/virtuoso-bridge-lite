@@ -74,6 +74,10 @@ client = VirtuosoClient.from_env()
 client.execute_skill("1+2")  # VirtuosoResult(status=SUCCESS, output='3')
 ```
 
+> **CIW output vs return value**: `execute_skill()` returns the result to Python but does **not** print in the CIW window. To also display in CIW, use `printf` explicitly:
+> `client.execute_skill(r'let((v) v=1+2 printf("1+2 = %d\n" v) v)')`.
+> See `examples/01_virtuoso/basic/00_ciw_output_vs_return.py`.
+
 ### Jump host setup
 
 If you access Virtuoso through a bastion/jump host, set both hosts in `.env`:
