@@ -42,9 +42,17 @@ Always use the highest level that works. Drop to a lower level only when needed.
 
 ## Before you start
 
-1. **Check connection**: `virtuoso-bridge status`. If unhealthy: `virtuoso-bridge restart`.
-2. **Check examples first**: `examples/01_virtuoso/` — don't reinvent from scratch.
-3. **Open the window**: `client.open_window(lib, cell, view="layout")` so the user sees what you're doing.
+### Connection sequence (follow in order)
+
+1. **Check `.env`** — if the project has no `.env` yet, run **`virtuoso-bridge init`** to create one. If `.env` already exists, skip `init`.
+2. **`virtuoso-bridge start`** — starts the local bridge service and SSH tunnel.
+3. **If status is `degraded`** — the user must load the setup script in Virtuoso CIW (the `start` output tells them exactly what to run).
+4. **`virtuoso-bridge status`** — verify everything is `healthy` before proceeding.
+
+### Then
+
+- **Check examples first**: `examples/01_virtuoso/` — don't reinvent from scratch.
+- **Open the window**: `client.open_window(lib, cell, view="layout")` so the user sees what you're doing.
 
 ## Client basics
 
