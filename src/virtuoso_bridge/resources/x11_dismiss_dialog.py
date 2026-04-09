@@ -173,8 +173,6 @@ def main():
             sys.exit(2)
         if x11_env.get("XAUTHORITY"):
             os.environ["XAUTHORITY"] = x11_env["XAUTHORITY"]
-    print(json.dumps({"display": display}))
-
     dialogs = find_dialogs(display)
     for d in dialogs:
         print(json.dumps(d))
