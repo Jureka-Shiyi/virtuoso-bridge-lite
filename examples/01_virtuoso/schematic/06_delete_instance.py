@@ -31,7 +31,8 @@ let((cv out)
     out = strcat(out inst~>name "\\n"))
   out)
 ''')
-    raw = (r.output or "").strip('"').replace("\\n", "\n")
+    from virtuoso_bridge import decode_skill_output
+    raw = decode_skill_output(r.output)
     names = [n for n in raw.splitlines() if n]
     print(f"Instances: {names}")
 
