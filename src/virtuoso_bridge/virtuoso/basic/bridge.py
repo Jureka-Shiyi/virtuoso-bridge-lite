@@ -433,6 +433,33 @@ class VirtuosoClient(VirtuosoInterface):
             )
         return result
 
+    # -- X11 dialog recovery (bypasses SKILL channel) ----------------------
+
+    def dismiss_dialog(self, display: str | None = None) -> list[dict]:
+        """Find and dismiss blocking GUI dialogs via X11.
+
+        Use when execute_skill() times out due to a modal dialog blocking CIW.
+        Works via direct SSH + X11, independent of the SKILL channel.
+        """
+        from virtuoso_bridge.virtuoso import x11
+        runner = self.ssh_runner
+        if runner is None:
+            raise RuntimeError("No SSH connection (tunnel not started?)")
+        user = os.getenv("VB_REMOTE_USER", "")
+        return x11.dismiss_dialogs(runner, user, display)
+
+    def x11_screenshot(self, local_path: str, display: str | None = None) -> dict:
+        """Take a fullscreen X11 screenshot of the remote display.
+
+        Works via direct SSH, independent of the SKILL channel.
+        """
+        from virtuoso_bridge.virtuoso import x11
+        runner = self.ssh_runner
+        if runner is None:
+            raise RuntimeError("No SSH connection (tunnel not started?)")
+        user = os.getenv("VB_REMOTE_USER", "")
+        return x11.screenshot(runner, user, local_path, display)
+
     # -- file transfer (delegates to tunnel) --------------------------------
 
     def download_file(self, remote_path: str | Path, local_path: str | Path,

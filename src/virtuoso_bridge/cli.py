@@ -682,6 +682,66 @@ def cli_sim_cancel() -> int:
 _SIM_CANCEL_JOB_ID: list[str] = [""]
 
 
+def cli_dismiss_dialog() -> int:
+    """Find and dismiss blocking Virtuoso GUI dialogs via X11."""
+    _load_repo_env()
+    from virtuoso_bridge.virtuoso import x11
+    from virtuoso_bridge.transport.ssh import SSHRunner
+
+    profile = _get_cli_profile()
+    suffix = f"_{profile}" if profile else ""
+    remote_host = os.getenv(f"VB_REMOTE_HOST{suffix}", "").strip()
+    remote_user = os.getenv(f"VB_REMOTE_USER{suffix}", "").strip()
+    jump_host = os.getenv(f"VB_JUMP_HOST{suffix}", "").strip() or None
+    jump_user = os.getenv(f"VB_JUMP_USER{suffix}", remote_user).strip() or None
+
+    if not remote_host:
+        print("Error: VB_REMOTE_HOST not set")
+        return 1
+
+    # Access CLI args via the argparse namespace stored in _CLI_DISMISS_ARGS
+    display = _CLI_DISMISS_ARGS.get("display")
+    screenshot_path = _CLI_DISMISS_ARGS.get("screenshot")
+    scan_only = _CLI_DISMISS_ARGS.get("scan", False)
+
+    runner = SSHRunner(
+        host=remote_host,
+        user=remote_user,
+        jump_host=jump_host,
+        jump_user=jump_user,
+    )
+
+    if screenshot_path:
+        print(f"[screenshot] Capturing remote display ...")
+        result = x11.screenshot(runner, remote_user, screenshot_path, display)
+        print(f"[screenshot] {result.get('local_path', 'unknown')}")
+        return 0
+
+    if scan_only:
+        print("[scan] Looking for dialog windows ...")
+        dialogs = x11.find_dialogs(runner, remote_user, display)
+    else:
+        print("[dismiss] Looking for and dismissing dialog windows ...")
+        dialogs = x11.dismiss_dialogs(runner, remote_user, display)
+
+    if not dialogs:
+        print("No dialog windows found.")
+        return 0
+
+    for d in dialogs:
+        if "error" in d:
+            print(f"  Error: {d['error']}")
+        elif "dismissed" in d:
+            print(f"  Dismissed: {d['dismissed']}")
+        elif "title" in d:
+            print(f'  Found: "{d["title"]}" at ({d.get("x",0)},{d.get("y",0)}) {d.get("w",0)}x{d.get("h",0)}')
+
+    return 0
+
+
+_CLI_DISMISS_ARGS: dict = {}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="virtuoso-bridge")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -699,6 +759,17 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("sim-jobs", help="Show submitted simulation jobs")
     sp_cancel = subparsers.add_parser("sim-cancel", help="Cancel a running simulation")
     sp_cancel.add_argument("job_id", help="Job ID to cancel (from sim-jobs)")
+
+    sp_dismiss = subparsers.add_parser(
+        "dismiss-dialog", help="Find and dismiss blocking Virtuoso GUI dialogs via X11")
+    sp_dismiss.add_argument("-p", "--profile", default=None,
+                            help="Connection profile (reads VB_*_<profile> env vars)")
+    sp_dismiss.add_argument("--scan", action="store_true",
+                            help="Only scan for dialogs, don't dismiss")
+    sp_dismiss.add_argument("--display",
+                            help="X11 DISPLAY (auto-detected from virtuoso process if omitted)")
+    sp_dismiss.add_argument("--screenshot", metavar="PATH",
+                            help="Save fullscreen screenshot instead of dismissing")
     return parser
 
 
@@ -714,6 +785,7 @@ def main(argv: list[str] | None = None) -> int:
         "license": cli_license,
         "sim-jobs": cli_sim_jobs,
         "sim-cancel": cli_sim_cancel,
+        "dismiss-dialog": cli_dismiss_dialog,
     }
     # Pass profile to commands that support it
     profile = getattr(args, "profile", None)
@@ -722,6 +794,13 @@ def main(argv: list[str] | None = None) -> int:
     job_id = getattr(args, "job_id", None)
     if job_id is not None:
         _SIM_CANCEL_JOB_ID[0] = job_id
+    # Pass dismiss-dialog args
+    if args.command == "dismiss-dialog":
+        _CLI_DISMISS_ARGS.update({
+            "display": getattr(args, "display", None),
+            "screenshot": getattr(args, "screenshot", None),
+            "scan": getattr(args, "scan", False),
+        })
     return dispatch[args.command]()
 
 
