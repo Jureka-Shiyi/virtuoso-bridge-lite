@@ -27,7 +27,7 @@ from typing import Any
 
 import yaml
 
-from virtuoso_bridge import VirtuosoClient
+from virtuoso_bridge import VirtuosoClient, decode_skill_output
 
 _DEFAULT_FILTERS_PATH = Path(__file__).parent / "cdf_param_filters.yaml"
 
@@ -155,7 +155,7 @@ def read_schematic(
     skill = skill.replace("{notes_section}", _NOTES_SECTION_EXPR)
 
     r = client.execute_skill(skill, timeout=60)
-    raw = (r.output or "").strip('"').replace("\\n", "\n").replace('\\"', '"')
+    raw = decode_skill_output(r.output)
 
     # Load filter config
     filter_config = None
@@ -348,7 +348,7 @@ def read_placement(
 
     skill = _READ_PLACEMENT_SKILL.replace("{cv_expr}", cv_expr)
     r = client.execute_skill(skill, timeout=30)
-    raw = (r.output or "").strip('"').replace("\\n", "\n").replace('\\"', '"')
+    raw = decode_skill_output(r.output)
 
     result: dict = {"instances": [], "pins": [], "labels": [], "wires": []}
     section = None
@@ -412,7 +412,7 @@ def read_connectivity(
 
     skill = _READ_CONNECTIVITY_SKILL.replace("{cv_expr}", cv_expr)
     r = client.execute_skill(skill, timeout=30)
-    raw = (r.output or "").strip('"').replace("\\n", "\n").replace('\\"', '"')
+    raw = decode_skill_output(r.output)
 
     result: dict = {"instances": [], "nets": [], "pins": []}
     section = None
@@ -475,7 +475,7 @@ def read_instance_params(
 
     skill = _READ_PARAMS_SKILL.replace("{cv_expr}", cv_expr)
     r = client.execute_skill(skill, timeout=30)
-    raw = (r.output or "").strip('"').replace("\\n", "\n").replace('\\"', '"')
+    raw = decode_skill_output(r.output)
 
     result = []
     for line in raw.splitlines():

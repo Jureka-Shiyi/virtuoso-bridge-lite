@@ -10,6 +10,12 @@ from virtuoso_bridge.models import (
 )
 from virtuoso_bridge.spectre.runner import SpectreSimulator
 
+def decode_skill_output(raw: str | None) -> str:
+    """Decode raw SKILL output: strip outer quotes, unescape \\\\n and \\\\"."""
+    text = (raw or "").strip().strip('"')
+    return text.replace("\\n", "\n").replace('\\"', '"')
+
+
 __all__ = [
     "VirtuosoClient",
     "SSHClient",
@@ -18,4 +24,5 @@ __all__ = [
     "ExecutionStatus",
     "SkillResult",
     "SimulationResult",
+    "decode_skill_output",
 ]
