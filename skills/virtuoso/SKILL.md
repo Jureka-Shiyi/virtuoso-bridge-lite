@@ -431,6 +431,31 @@ client.download_file("/tmp/debug_maestro.png", "output/debug_maestro.png")
 
 This reveals dialog boxes, error messages, or unexpected variable values that are invisible through the SKILL channel alone.
 
+### SKILL channel timeout — diagnosis and recovery
+
+When `execute_skill()` times out, possible causes:
+
+| Cause | Symptom | Fix |
+|-------|---------|-----|
+| **Modal dialog** | GUI popup blocking CIW | `virtuoso-bridge dismiss-dialog` |
+| **Long operation** | Simulation or netlist running | Wait, or use `?waitUntilDone nil` |
+| **CIW input prompt** | CIW waiting for typed input | `dismiss-dialog` (sends Enter) |
+| **Bridge disconnected** | All calls fail immediately | `virtuoso-bridge restart` |
+
+**Dialog recovery (bypasses SKILL, uses X11 directly):**
+
+```bash
+# Find and dismiss all blocking Virtuoso dialogs
+virtuoso-bridge dismiss-dialog
+
+# From Python
+client.dismiss_dialog()
+```
+
+Uses `xwininfo` to find virtuoso-owned dialog windows and `XTestFakeKeyEvent` to send Enter. Works even when the SKILL channel is completely stuck.
+
+**Prevention:** Always `dbSave(cv)` before `hiCloseWindow(win)`. Never use `?waitUntilDone t` in simulation calls. Add dialog-recovery in simulation loops (see "Run a simulation" section).
+
 ### Gotchas
 
 See `references/troubleshooting.md` for a searchable list of known pitfalls (GUI dialog blocking, CDF vs `inst~>prop`, `csh()` return values, Maestro variable quirks, connection issues, etc.). When something fails unexpectedly, search that file by keyword before debugging from scratch.
