@@ -338,45 +338,50 @@ with client.schematic.edit(LIB, CELL) as sch:
 
 ### Read a design (schematic + maestro + netlist)
 
-```python
-from virtuoso_bridge import VirtuosoClient
-from virtuoso_bridge.virtuoso.maestro import read_config
+**Always use the Python API functions below. Do NOT hand-write SKILL for reading.**
 
+```python
+from virtuoso_bridge import VirtuosoClient, decode_skill_output
 client = VirtuosoClient.from_env()
 LIB, CELL = "myLib", "myCell"
 
-# 1. Schematic — read connectivity
-from virtuoso_bridge.virtuoso.schematic.reader import read_connectivity
-connectivity = read_connectivity(client, LIB, CELL)
-# connectivity = {"instances": [...], "nets": [...], "pins": [...]}
+# 1. Schematic — read everything in one call
+from virtuoso_bridge.virtuoso.schematic.reader import read_schematic
+data = read_schematic(client, LIB, CELL)
+# data = {
+#     "instances": [{"name", "lib", "cell", "xy", "orient", "bBox",
+#                    "numInst", "view", "params": {...}, "terms": {...}}, ...],
+#     "nets": {"VN1": {"connections": ["M0.D", ...], "numBits": 1,
+#                       "sigType": "signal", "isGlobal": false}, ...},
+#     "pins": {"VINP": {"direction": "input", "numBits": 1}, ...},
+#     "notes": [{"text": "...", "xy": [...], ...}, ...]
+# }
 
-# 1b. Schematic — read instance parameters (W, L, nf, m, etc.)
-from virtuoso_bridge.virtuoso.schematic.reader import read_instance_params
-params = read_instance_params(client, LIB, CELL, filter_params=["w", "l", "nf", "m"])
-# params = [{"name": "M0", "lib": "tsmcN28", "cell": "pch_mac",
-#            "params": {"w": "500n", "l": "30n", "nf": "1", "m": "1"}}, ...]
+# Topology only (no positions/geometry):
+topo = read_schematic(client, LIB, CELL, include_positions=False)
 
-# 2. Maestro — open GUI, read config, close
-client.open_window(LIB, CELL, view="schematic")  # must open schematic first
-r = client.execute_skill(f'''
-let((before after session)
-  before = maeGetSessions()
-  deOpenCellView("{LIB}" "{CELL}" "maestro" "maestro" nil "r")
-  after = maeGetSessions()
-  session = nil
-  foreach(s after unless(member(s before) session = s))
-  session
-)
-''')
-session = (r.output or "").strip('"')
-config = read_config(client, session)           # dict of key → (skill_expr, raw)
-# close maestro window after reading
+# No CDF param filtering (return all 200+ PDK params):
+raw = read_schematic(client, LIB, CELL, param_filters=None)
 
-# 3. Netlist — generate on remote, download via SSH
-test = client.execute_skill(f'car(maeGetSetup(?session "{session}"))').output.strip('"')
+# 2. Maestro — use open_session / read_config / close_session
+from virtuoso_bridge.virtuoso.maestro import open_session, close_session, read_config
+session = open_session(client, LIB, CELL)       # maeOpenSetup (background, no GUI)
+config = read_config(client, session)            # dict of key -> (skill_expr, raw)
+# config keys: maeGetSetup (tests), maeGetEnabledAnalysis, maeGetAnalysis:XXX,
+#              maeGetTestOutputs, variables, parameters, corners
+close_session(client, session)
+
+# IMPORTANT: Do NOT use deOpenCellView for maestro — it opens read-only and
+# returns incomplete data. Always use open_session (= maeOpenSetup).
+
+# 3. Netlist — generate from maestro session, download via SSH
+session = open_session(client, LIB, CELL)
+test = decode_skill_output(
+    client.execute_skill(f'car(maeGetSetup(?session "{session}"))').output)
 client.execute_skill(
     f'maeCreateNetlistForCorner("{test}" "Nominal" "/tmp/nl_{CELL}" ?session "{session}")')
 client.download_file(f"/tmp/nl_{CELL}/netlist/input.scs", "output/netlist.scs")
+close_session(client, session)
 ```
 
 ### Run a simulation
