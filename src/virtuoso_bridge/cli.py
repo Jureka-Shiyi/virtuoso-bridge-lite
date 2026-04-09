@@ -718,20 +718,6 @@ def cli_dismiss_dialog() -> int:
     return 0
 
 
-def cli_screenshot() -> int:
-    """Take a fullscreen screenshot of the remote Virtuoso display."""
-    _load_repo_env()
-    from virtuoso_bridge.virtuoso import x11
-    runner, user = _make_ssh_runner()
-
-    out_path = _CLI_SCREENSHOT_PATH[0] or "screenshot.png"
-    result = x11.screenshot(runner, user, out_path)
-    print(result.get("local_path", out_path))
-    return 0
-
-
-_CLI_SCREENSHOT_PATH: list[str] = [""]
-
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="virtuoso-bridge")
@@ -756,12 +742,6 @@ def build_parser() -> argparse.ArgumentParser:
     sp_dismiss.add_argument("-p", "--profile", default=None,
                             help="Connection profile")
 
-    sp_screenshot = subparsers.add_parser(
-        "screenshot", help="Take a fullscreen screenshot of the remote display")
-    sp_screenshot.add_argument("-p", "--profile", default=None,
-                               help="Connection profile")
-    sp_screenshot.add_argument("path", nargs="?", default="screenshot.png",
-                               help="Output file path (default: screenshot.png)")
     return parser
 
 
@@ -778,7 +758,6 @@ def main(argv: list[str] | None = None) -> int:
         "sim-jobs": cli_sim_jobs,
         "sim-cancel": cli_sim_cancel,
         "dismiss-dialog": cli_dismiss_dialog,
-        "screenshot": cli_screenshot,
     }
     # Pass profile to commands that support it
     profile = getattr(args, "profile", None)
@@ -787,9 +766,6 @@ def main(argv: list[str] | None = None) -> int:
     job_id = getattr(args, "job_id", None)
     if job_id is not None:
         _SIM_CANCEL_JOB_ID[0] = job_id
-    # Pass screenshot path
-    if args.command == "screenshot":
-        _CLI_SCREENSHOT_PATH[0] = getattr(args, "path", "screenshot.png")
     return dispatch[args.command]()
 
 

@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
-
-import os
 
 from virtuoso_bridge.transport.ssh import SSHRunner
 
@@ -71,44 +70,6 @@ def dismiss_dialogs(
         cmd += f" {resolved}"
     result = runner.run_command(cmd, timeout=15)
     return _parse_output(result.stdout)
-
-
-def screenshot(
-    runner: SSHRunner,
-    user: str,
-    local_path: str | Path,
-    display: str | None = None,
-) -> dict[str, Any]:
-    """Take a fullscreen X11 screenshot, download as PNG (or PPM).
-
-    Args:
-        local_path: Local path to save the screenshot (PNG if Pillow installed).
-    """
-    script = _ensure_helper(runner, user)
-    resolved = _get_display(display)
-    remote_ppm = f"/tmp/virtuoso_bridge_{user}/x11_screenshot.ppm"
-    cmd = f"python2 {script} --screenshot {remote_ppm}"
-    if resolved:
-        cmd += f" {resolved}"
-    result = runner.run_command(cmd, timeout=30)
-    parsed = _parse_output(result.stdout)
-
-    local_path = Path(local_path)
-    local_ppm = local_path.with_suffix(".ppm")
-    local_ppm.parent.mkdir(parents=True, exist_ok=True)
-    runner.download(remote_ppm, local_ppm)
-
-    try:
-        from PIL import Image
-        img = Image.open(str(local_ppm))
-        img.save(str(local_path))
-        local_ppm.unlink(missing_ok=True)
-        info: dict[str, Any] = {"local_path": str(local_path), "format": "png"}
-    except ImportError:
-        info = {"local_path": str(local_ppm), "format": "ppm",
-                "note": "install Pillow for PNG conversion"}
-
-    return {**info, "remote_results": parsed}
 
 
 def _parse_output(stdout: str) -> list[dict[str, Any]]:

@@ -2,13 +2,13 @@
 """X11 dialog finder and dismisser. Runs on the remote Virtuoso host.
 
 Usage:
-    python2 x11_dismiss_dialog.py <DISPLAY> [--dismiss] [--screenshot /tmp/out.ppm]
+    python2 x11_dismiss_dialog.py [DISPLAY] [--dismiss]
 
 Output (stdout): JSON lines, one per dialog found:
     {"window_id": "0x2e01f16", "title": "Save Changes", "x": 1010, "y": 378, "w": 239, "h": 142}
 
 With --dismiss: sends Enter key to each dialog found.
-With --screenshot: saves a fullscreen PPM screenshot to the given path.
+DISPLAY auto-detected from running virtuoso process if omitted.
 
 Exit codes: 0 = dialogs found/dismissed, 1 = no dialogs found, 2 = error
 """
@@ -16,7 +16,6 @@ import ctypes
 import ctypes.util
 import json
 import os
-import struct
 import subprocess
 import sys
 import time
@@ -153,77 +152,20 @@ def dismiss_window(display, win_id_str):
     return {"dismissed": win_id_str, "keycode": int(keycode)}
 
 
-def screenshot_ppm(display, output_path):
-    """Take a fullscreen screenshot, save as PPM."""
-    os.environ["DISPLAY"] = display
-    xwd_tmp = "/tmp/_vb_screen.xwd"
-    try:
-        # -screen includes composited window contents (not just the empty root)
-        subprocess.check_call(
-            ["xwd", "-root", "-screen", "-silent", "-out", xwd_tmp],
-            stderr=subprocess.PIPE
-        )
-    except (subprocess.CalledProcessError, OSError) as e:
-        return {"error": "xwd failed: %s" % str(e)}
-
-    data = open(xwd_tmp, "rb").read()
-    hs = struct.unpack(">I", data[0:4])[0]
-    w = struct.unpack(">I", data[16:20])[0]
-    h = struct.unpack(">I", data[20:24])[0]
-    bpp = struct.unpack(">I", data[44:48])[0]
-    bpl = struct.unpack(">I", data[48:52])[0]
-    pixels = data[hs:]
-
-    # XWD byte_order: 0=LSBFirst (RGB pixels), 1=MSBFirst (BGR pixels)
-    byte_order = struct.unpack(">I", data[28:32])[0]
-
-    rgb = bytearray()
-    for y_row in range(h):
-        row = pixels[y_row * bpl: y_row * bpl + w * (bpp // 8)]
-        for x_col in range(w):
-            if bpp == 32:
-                p0, p1, p2 = ord(row[x_col*4]), ord(row[x_col*4+1]), ord(row[x_col*4+2])
-            else:
-                p0, p1, p2 = ord(row[x_col*3]), ord(row[x_col*3+1]), ord(row[x_col*3+2])
-            if byte_order == 0:  # LSBFirst: stored as R,G,B
-                rgb.append(p0)
-                rgb.append(p1)
-                rgb.append(p2)
-            else:  # MSBFirst: stored as B,G,R
-                rgb.append(p2)
-                rgb.append(p1)
-                rgb.append(p0)
-
-    with open(output_path, "wb") as f:
-        f.write("P6\n%d %d\n255\n" % (w, h))
-        f.write(bytes(rgb))
-
-    try:
-        os.remove(xwd_tmp)
-    except OSError:
-        pass
-    return {"screenshot": output_path, "size": [w, h]}
-
-
 def main():
     args = sys.argv[1:]
     display = None
     do_dismiss = False
-    screenshot_path = None
 
     i = 0
     while i < len(args):
         if args[i] == "--dismiss":
             do_dismiss = True
-        elif args[i] == "--screenshot":
-            i += 1
-            screenshot_path = args[i] if i < len(args) else "/tmp/_vb_screenshot.ppm"
         elif not args[i].startswith("-"):
             display = args[i]
         i += 1
 
     if not display:
-        # Try all virtuoso processes, prefer the one with the largest screen
         x11_env = find_x11_env()
         display = x11_env.get("DISPLAY")
         if not display:
@@ -232,10 +174,6 @@ def main():
         if x11_env.get("XAUTHORITY"):
             os.environ["XAUTHORITY"] = x11_env["XAUTHORITY"]
     print(json.dumps({"display": display}))
-
-    if screenshot_path:
-        result = screenshot_ppm(display, screenshot_path)
-        print(json.dumps(result))
 
     dialogs = find_dialogs(display)
     for d in dialogs:
