@@ -26,8 +26,12 @@ DIALOG_TITLES = ["Save Changes", "Warning", "Error", "Confirm", "Question",
 
 
 def find_x11_env(user=None):
-    """Auto-detect DISPLAY and XAUTHORITY from running virtuoso process."""
-    result = {"DISPLAY": None, "XAUTHORITY": None}
+    """Auto-detect DISPLAY and XAUTHORITY from running virtuoso process.
+
+    Skips batch virtuoso processes (those with -nograph in cmdline).
+    If multiple candidates, prefers the interactive one.
+    """
+    candidates = []
     try:
         pids = subprocess.check_output(
             ["pgrep", "-u", user or os.environ.get("USER", ""), "-x", "virtuoso"],
@@ -37,21 +41,36 @@ def find_x11_env(user=None):
             pid = pid.strip()
             if not pid:
                 continue
+            # Skip batch processes (have -nograph in cmdline)
+            try:
+                cmdline = open("/proc/%s/cmdline" % pid, "rb").read()
+                if b"-nograph" in cmdline:
+                    continue
+            except (IOError, OSError):
+                pass
             env_file = "/proc/%s/environ" % pid
             try:
                 data = open(env_file, "rb").read()
+                info = {"DISPLAY": None, "XAUTHORITY": None}
                 for chunk in data.split(b"\x00"):
-                    if chunk.startswith(b"DISPLAY=") and not result["DISPLAY"]:
-                        result["DISPLAY"] = chunk.split(b"=", 1)[1].decode()
-                    elif chunk.startswith(b"XAUTHORITY=") and not result["XAUTHORITY"]:
-                        result["XAUTHORITY"] = chunk.split(b"=", 1)[1].decode()
-                if result["DISPLAY"]:
-                    return result
+                    if chunk.startswith(b"DISPLAY="):
+                        info["DISPLAY"] = chunk.split(b"=", 1)[1].decode()
+                    elif chunk.startswith(b"XAUTHORITY="):
+                        info["XAUTHORITY"] = chunk.split(b"=", 1)[1].decode()
+                if info["DISPLAY"]:
+                    candidates.append(info)
             except (IOError, OSError):
                 continue
     except (subprocess.CalledProcessError, OSError):
         pass
-    return result
+
+    if not candidates:
+        return {"DISPLAY": None, "XAUTHORITY": None}
+
+    # Prefer interactive display (not Xvfb-style small displays)
+    # Heuristic: Xvfb displays often use high display numbers (:99, :1024)
+    # Real user sessions use lower numbers or localhost:NN
+    return candidates[0]
 
 
 def find_dialogs(display):
@@ -139,8 +158,9 @@ def screenshot_ppm(display, output_path):
     os.environ["DISPLAY"] = display
     xwd_tmp = "/tmp/_vb_screen.xwd"
     try:
+        # -screen includes composited window contents (not just the empty root)
         subprocess.check_call(
-            ["xwd", "-root", "-silent", "-out", xwd_tmp],
+            ["xwd", "-root", "-screen", "-silent", "-out", xwd_tmp],
             stderr=subprocess.PIPE
         )
     except (subprocess.CalledProcessError, OSError) as e:
@@ -203,6 +223,7 @@ def main():
         i += 1
 
     if not display:
+        # Try all virtuoso processes, prefer the one with the largest screen
         x11_env = find_x11_env()
         display = x11_env.get("DISPLAY")
         if not display:
@@ -210,6 +231,7 @@ def main():
             sys.exit(2)
         if x11_env.get("XAUTHORITY"):
             os.environ["XAUTHORITY"] = x11_env["XAUTHORITY"]
+    print(json.dumps({"display": display}))
 
     if screenshot_path:
         result = screenshot_ppm(display, screenshot_path)

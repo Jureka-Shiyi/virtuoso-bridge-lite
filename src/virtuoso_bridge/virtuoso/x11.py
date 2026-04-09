@@ -12,11 +12,20 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import os
+
 from virtuoso_bridge.transport.ssh import SSHRunner
 
 logger = logging.getLogger(__name__)
 
 _HELPER_SCRIPT = Path(__file__).parent.parent / "resources" / "x11_dismiss_dialog.py"
+
+
+def _get_display(display: str | None) -> str | None:
+    """Resolve display: explicit arg > VB_DISPLAY env var > auto-detect (None)."""
+    if display:
+        return display
+    return os.getenv("VB_DISPLAY") or None
 
 
 def _ensure_helper(runner: SSHRunner, user: str) -> str:
@@ -38,9 +47,10 @@ def find_dialogs(
     Returns list of dicts: [{"window_id", "title", "x", "y", "w", "h"}, ...]
     """
     script = _ensure_helper(runner, user)
+    resolved = _get_display(display)
     cmd = f"python2 {script}"
-    if display:
-        cmd += f" {display}"
+    if resolved:
+        cmd += f" {resolved}"
     result = runner.run_command(cmd, timeout=15)
     return _parse_output(result.stdout)
 
@@ -55,9 +65,10 @@ def dismiss_dialogs(
     Returns list of result dicts (found dialogs + dismissal results).
     """
     script = _ensure_helper(runner, user)
+    resolved = _get_display(display)
     cmd = f"python2 {script} --dismiss"
-    if display:
-        cmd += f" {display}"
+    if resolved:
+        cmd += f" {resolved}"
     result = runner.run_command(cmd, timeout=15)
     return _parse_output(result.stdout)
 
@@ -74,10 +85,11 @@ def screenshot(
         local_path: Local path to save the screenshot (PNG if Pillow installed).
     """
     script = _ensure_helper(runner, user)
+    resolved = _get_display(display)
     remote_ppm = f"/tmp/virtuoso_bridge_{user}/x11_screenshot.ppm"
     cmd = f"python2 {script} --screenshot {remote_ppm}"
-    if display:
-        cmd += f" {display}"
+    if resolved:
+        cmd += f" {resolved}"
     result = runner.run_command(cmd, timeout=30)
     parsed = _parse_output(result.stdout)
 
