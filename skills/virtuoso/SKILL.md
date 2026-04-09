@@ -1,9 +1,18 @@
 ---
 name: virtuoso
-description: "MANDATORY — MUST load this skill when the user mentions: Virtuoso, Maestro, ADE, CIW, SKILL (Cadence), layout, schematic, cellview, OCEAN, design variables, or any Cadence EDA operation. Bridge to remote Cadence Virtuoso: SKILL execution, layout/schematic editing, ADE Maestro simulation setup via Python API. TRIGGER when the user mentions Virtuoso, SKILL (the Cadence language), Cadence IC, layout editing, schematic creation, cellview operations, CIW commands, ADE setup, Maestro configuration, design variables, OCEAN results, or any EDA task involving a Cadence design database — even if they just say 'draw a circuit' or 'place some transistors'."
+description: "Bridge to remote Cadence Virtuoso via Python API. TRIGGER when user mentions: Virtuoso, Maestro, ADE, CIW, SKILL, layout, schematic, cellview, OCEAN, or any Cadence EDA operation."
 ---
 
 # Virtuoso Skill
+
+> **CRITICAL: Do NOT invent SKILL code or API calls from memory.**
+> Before writing any SKILL expression or calling any Python API function:
+> 1. **Search `references/`** for the function name or keyword
+> 2. **Check `examples/`** for a working example of the same operation
+> 3. **Read the actual function signature** (`help()` for Python, `references/*.md` for SKILL)
+>
+> If the function is not documented in references or examples, it probably does not exist
+> or has a different name. Never guess parameter names -- verify first.
 
 ## Mental Model
 
