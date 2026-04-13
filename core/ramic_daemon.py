@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""RAMIC Bridge Daemon — minimal TCP-to-Virtuoso IPC relay.
+"""
+RAMIC Bridge Daemon — minimal TCP-to-Virtuoso IPC relay.
 
 Launched by Virtuoso's ipcBeginProcess(). Receives SKILL commands over TCP,
 writes them to stdout (→ Virtuoso), reads results from stdin (← Virtuoso),
