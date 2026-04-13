@@ -222,7 +222,6 @@ _BLOCKED_FNS = re.compile(
 
 #### 3.1 文件阅读顺序
 
-**ssh.py**
 ```python
 # 重点类: SSHClient
 核心功能:
@@ -239,7 +238,6 @@ _BLOCKED_FNS = re.compile(
 └── check_spectre() # 检查 Spectre 可用性
 ```
 
-**tunnel.py**
 ```python
 # 重点: SSH 隧道管理
 核心功能:
